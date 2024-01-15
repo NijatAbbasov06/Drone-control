@@ -9,15 +9,21 @@ function controllers = construct_controllers(thrust_controller_params, phy_contr
 
     controllers = struct('thrust_controller', thrust_controller, 'phy_controller', phy_controller, ...
     'theta_controller', theta_controller, 'psy_controller', psy_controller);
+    disp(controllers)
+    
 
 end
 
 function controller = params_to_struct(controller_params)
     if size(controller_params, 1) == 2
         controller = struct('p', controller_params(1), 'd', controller_params(2));
+        disp("job done")
+        disp(size(controller_params))
     elseif size(controller_params, 1) == 3
         controller = struct('p', controller_params(1), 'i', controller_params(2), ...
             'd', controller_params(3));
+        disp("job aint done")
+       
     end
 
 end

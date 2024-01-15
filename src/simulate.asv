@@ -32,16 +32,18 @@ function result = simulate(controllers, desired_state, init_state, tstart, tend,
     ind = 0;
     for t = ts
         ind = ind + 1;     
+
+        [rotor_state, controller_params] = resolve_control_signals(controllers, controller_params, desired_state, theta, thetadot, x(3), xdot(3));
         
-        [i, controller_params] = resolve_control_signals(controllers, controller_params, desired_state, theta, thetadot, x(3), xdot(3));
+
 
         % Compute forces, torques, and accelerations
-        omega = thetadot2omega(thetadot, theta);
-        a = acceleration(i, theta, xdot, m, g, k, kd);
-        omegadot = angular_acceleration(i, omega, I, L, b, k);
+        omega = thetadot2omega(thetadot, theta); %labframe to body frame
+        a = acceleration(rotor_state, theta, xdot, m, g, k, kd);
+        omegadot = angular_acceleration(rotor_state, omega, I, L, b, k);
 
         % Progress the system state
-        omega = omega + dt * omegadot;
+        omega = omega + dt * omegadot; %in body frame
         thetadot = omega2thetadot(omega, theta); 
         theta = theta + dt * thetadot;
         xdot = xdot + dt * a;
@@ -52,7 +54,7 @@ function result = simulate(controllers, desired_state, init_state, tstart, tend,
         xdotout(:, ind) = xdot;
         thetaout(:, ind) = theta;
         thetadotout(:, ind) = thetadot;
-        inputout(:, ind) = i;
+        inputout(:, ind) = rotor_state;
     end
 
     % Put all simulation variables into an output struct
@@ -68,25 +70,26 @@ function T = thrust(inputs, k)
 end
 
 % Compute torques given current inputs, length of the drone arm, drag coefficient and thrust coefficient
-function tau = torques(inputs, L, b, k)
+function tau = torques(rotor_states, L, b, k)
     tau = [
-        L * k * (inputs(4) - inputs(2)) % roll
-        L * k * (inputs(3) - inputs(1)) % pitch
-        b * (inputs(4) - inputs(3) + inputs(2) - inputs(1)) % yaw
+        L * k * (rotor_states(4) - rotor_states(2)) % roll
+        L * k * (rotor_states(3) - rotor_states(1)) % pitch
+        b * (rotor_states(4) - rotor_states(3) + rotor_states(2) - rotor_states(1)) % yaw
     ];
 end
         
-function a = acceleration(inputs, angles, xdot, m, g, k, kd)
+function a = acceleration(rotor_state, theta, xdot, m, g, k, kd)
     gravity = [0; 0; -g];
-    R = rotation(angles);
-    T = R * thrust(inputs, k);
+    R = rotation(theta);
+    T = R * thrust(rotor_state, k);
     Fd = -kd * xdot; % aerodynamic drag
     a = gravity + (1 / m) * T + Fd;
 end
 
-function omegadot = angular_acceleration(inputs, omega, I, L, b, k)
-    tau = torques(inputs, L, b, k);
-    omegadot = inv(I) * (tau - cross(omega, I * omega));
+function omegadot = angular_acceleration(rotor_state, omega, I, L, b, k)
+    tau = torques(rotor_state, L, b, k);
+    inv_I = controller_params.I(1,1) * controller_params.I(2,2) * controller_params.I(3,3);
+    omegadot = inv_I * (tau - cross(omega, I * omega));
 end
 
 % Convert derivatives of roll, pitch, yaw to omega.
@@ -104,16 +107,16 @@ function omega = thetadot2omega(thetadot, angles)
 end
 
 % Convert omega to roll, pitch, yaw derivatives
-function thetadot = omega2thetadot(omega, angles)
-    phi = angles(1);
-    theta = angles(2);
+function thetadot = omega2thetadot(omega, theta)
+    phi = theta(1);
+    theta = theta(2);
     
-    W = [
-        1, 0, -sin(theta)
-        0, cos(phi), cos(theta)*sin(phi)
-        0, -sin(phi), cos(theta)*cos(phi)
+    inv_W = [
+        1, sin(phi)*tan(theta), cos(phi)*tan(theta)
+        0, cos(phi), 
+        0, -sin(phi), cos(phi)/cos(theta)
     ];
 
-    thetadot = inv(W) * omega;
+    thetadot = inv_W * omega;
 end
 
