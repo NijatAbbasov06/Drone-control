@@ -6,5 +6,5 @@ https://www.mathworks.com/help/predmaint/ug/Fault-Detection-Using-an-Extended-Ka
 
 The EKF(Extended Kalman Filter) in this code is changed to (KF) code to compare the two filter. After this, it is clear that EKF can give a better result for non-linear systems. 
 
-Right now, the EKF inside the model is under development. After that, we will test how EKF works for FDD in drone model. 
+Right now, the EKF inside the model is under development. After that, we will test how EKF works for FDD in drone model. We will detect the occurence of the strong wind by utilizing EKF.
 
